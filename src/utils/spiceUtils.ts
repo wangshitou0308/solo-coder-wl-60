@@ -100,7 +100,7 @@ export function generateSpiceEmoji(name: string): string {
     '芥末': '🥗',
     '咖喱': '🍛',
     '香草精': '🍦',
-    '五香粉': '�',
+    '五香粉': '🧂',
     '胡椒粉': '⚫',
     '花椒粉': '⚫',
     '辣椒面': '🌶️'

@@ -180,7 +180,7 @@ export default function SpiceRack() {
   );
 
   return (
-    <PageContainer activeMenu="spice-cabinet">
+    <PageContainer>
       <div className="space-y-6 animate-fade-in-up">
         <div>
           <h1 className="font-display text-2xl font-bold text-spice-charcoal">香料柜</h1>

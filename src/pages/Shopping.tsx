@@ -93,7 +93,7 @@ export default function Shopping() {
   const NextSeasonIcon = seasonIcons[nextSeason];
 
   return (
-    <PageContainer activeMenu="shopping-list">
+    <PageContainer>
       <div className="space-y-6 animate-fade-in-up">
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>

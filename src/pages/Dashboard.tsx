@@ -63,7 +63,7 @@ export default function Dashboard() {
   const barMax = usageStats.topSpices.length > 0 ? usageStats.topSpices[0].count : 1;
 
   return (
-    <PageContainer activeMenu="dashboard">
+    <PageContainer>
       <div className="space-y-6 animate-fade-in-up">
         <div>
           <h1 className="font-display text-2xl font-bold text-spice-charcoal">数据看板</h1>

@@ -38,7 +38,7 @@ export default function Knowledge() {
   }, [selectedIngredient]);
 
   return (
-    <PageContainer activeMenu="flavor-knowledge">
+    <PageContainer>
       <div className="space-y-6 animate-fade-in-up">
         <div>
           <h1 className="font-display text-2xl font-bold text-spice-charcoal">风味知识库</h1>

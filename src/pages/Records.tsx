@@ -180,7 +180,7 @@ export default function Records() {
   };
 
   return (
-    <PageContainer activeMenu="usage-records">
+    <PageContainer>
       <div className="space-y-6 animate-fade-in-up">
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>

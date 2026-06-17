@@ -177,7 +177,7 @@ export default function Inspiration() {
   };
 
   return (
-    <PageContainer activeMenu="creative-inspiration">
+    <PageContainer>
       <div className="space-y-8 animate-fade-in-up">
         <div>
           <h1 className="font-display text-2xl font-bold text-spice-charcoal">创意灵感</h1>

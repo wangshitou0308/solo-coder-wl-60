@@ -10,6 +10,7 @@ interface ShoppingState {
   items: ShoppingItem[];
   groupBy: GroupBy;
   addItem: (spiceId: string, reason?: string) => void;
+  addItemByName: (spiceName: string, category?: string, reason?: string) => void;
   removeItem: (id: string) => void;
   updateItemAmount: (id: string, amount: number) => void;
   toggleCheck: (id: string) => void;
@@ -87,6 +88,37 @@ export const useShoppingStore = create<ShoppingState>()(
           category: spice.category,
           brand: spice.brand,
           storageLocation: spice.storageLocation,
+          createdAt: new Date().toISOString(),
+        };
+
+        set((state) => ({
+          items: [...state.items, newItem],
+        }));
+      },
+
+      addItemByName: (spiceName, category, reason) => {
+        const spices = useSpiceStore.getState().spices;
+        const existingSpice = spices.find((s) => s.name === spiceName);
+
+        if (existingSpice) {
+          get().addItem(existingSpice.id, reason);
+          return;
+        }
+
+        const existingItem = get().items.find((i) => i.spiceName === spiceName);
+        if (existingItem) return;
+
+        const newItem: ShoppingItem = {
+          id: `shop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          spiceId: `new-${spiceName}`,
+          spiceName,
+          suggestedAmount: 30,
+          unit: '克',
+          priority: 'optional',
+          reason: reason || '创意灵感推荐补充',
+          addedManually: true,
+          checked: false,
+          category: category as any,
           createdAt: new Date().toISOString(),
         };
 

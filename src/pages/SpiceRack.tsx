@@ -50,6 +50,7 @@ const emptyForm: SpiceFormData = {
   unit: '克',
   notes: '',
   isSeasonal: false,
+  seasonType: '春季',
 };
 
 export default function SpiceRack() {
@@ -540,7 +541,14 @@ export default function SpiceRack() {
                 'relative w-10 h-5 rounded-full transition-colors cursor-pointer flex-shrink-0',
                 formData.isSeasonal ? 'bg-spice-sage' : 'bg-spice-creamDark'
               )}
-              onClick={() => setFormData({ ...formData, isSeasonal: !formData.isSeasonal })}
+              onClick={() => {
+                const newIsSeasonal = !formData.isSeasonal;
+                setFormData({
+                  ...formData,
+                  isSeasonal: newIsSeasonal,
+                  seasonType: newIsSeasonal ? (formData.seasonType || '春季') : formData.seasonType,
+                });
+              }}
             >
               <div
                 className={cn(

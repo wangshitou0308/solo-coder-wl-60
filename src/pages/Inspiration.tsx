@@ -174,7 +174,7 @@ function getThreeWaySuggestion(categories: string[]): string {
 export default function Inspiration() {
   const spices = useSpiceStore((state) => state.spices);
   const { toggleFavorite, isFavorite, getFavoritesByType } = useFavoriteStore();
-  const { addItem: addToShopping } = useShoppingStore();
+  const { addItemByName: addToShoppingByName } = useShoppingStore();
   const { addDraft } = useRecordStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('dishes');
@@ -346,14 +346,11 @@ export default function Inspiration() {
     toggleFavorite(type, itemId, itemData);
   };
 
-  const handleAddMissingToShopping = (missingSpices: string[]) => {
+  const handleAddMissingToShopping = (missingSpices: string[], category?: string) => {
     missingSpices.forEach((spiceName) => {
-      const spice = spices.find((s) => s.name === spiceName);
-      if (spice) {
-        addToShopping(spice.id, '菜品推荐缺少香料');
-      }
+      addToShoppingByName(spiceName, category, '创意灵感推荐补充');
     });
-    alert('已添加到采购清单');
+    alert(`已将 ${missingSpices.length} 种香料添加到采购清单`);
   };
 
   const handleSaveChallengeAsDraft = () => {
@@ -647,7 +644,7 @@ export default function Inspiration() {
                                     <span>缺少 ({missingSpices.length})</span>
                                   </div>
                                   <button
-                                    onClick={() => handleAddMissingToShopping(missingSpices)}
+                                    onClick={() => handleAddMissingToShopping(missingSpices, dish.requiredSpices[0]?.category)}
                                     className="text-xs text-spice-sageDark hover:text-spice-sage flex items-center gap-1"
                                   >
                                     <Plus className="h-3 w-3" />
@@ -791,9 +788,18 @@ export default function Inspiration() {
                           )}
                           {match.missingSpices.length > 0 && (
                             <div>
-                              <div className="flex items-center gap-1 text-xs font-semibold text-spice-cinnamon mb-1.5">
-                                <X className="h-3 w-3" />
-                                <span>缺少 ({match.missingSpices.length})</span>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-1 text-xs font-semibold text-spice-cinnamon">
+                                  <X className="h-3 w-3" />
+                                  <span>缺少 ({match.missingSpices.length})</span>
+                                </div>
+                                <button
+                                  onClick={() => handleAddMissingToShopping(match.missingSpices)}
+                                  className="text-xs text-spice-sageDark hover:text-spice-sage flex items-center gap-1"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  加入采购
+                                </button>
                               </div>
                               <div className="flex flex-wrap gap-1.5">
                                 {match.missingSpices.map((s) => (

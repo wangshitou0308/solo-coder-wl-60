@@ -10,11 +10,12 @@ import { useSpiceStore } from '@/store/useSpiceStore';
 import { getExpiryStatus, formatDate } from '@/utils/dateUtils';
 import { generateSpiceEmoji } from '@/utils/spiceUtils';
 import { cn } from '@/lib/utils';
-import type { Spice, SpiceCategory, SpiceForm as SpiceFormType, SeasonType } from '@/types';
+import type { Spice, SpiceCategory, SpiceForm as SpiceFormType, SeasonType, SpiceUnit } from '@/types';
 
 const categoryOptions: SpiceCategory[] = ['香草类', '辛香类', '辣椒类', '花香类', '籽类', '根茎类', '混合类', '皮类', '叶类'];
 const formOptions: SpiceFormType[] = ['整粒', '粉末', '新鲜', '干燥', '油浸', '膏状', '碎片'];
 const seasonOptions: SeasonType[] = ['春季', '夏季', '秋季', '冬季'];
+const unitOptions: SpiceUnit[] = ['克', '毫升', '个', '片', '茶匙', '汤匙', '束', '小块'];
 
 interface SpiceFormData {
   name: string;
@@ -27,6 +28,8 @@ interface SpiceFormData {
   storageLocation: string;
   remainingAmount: number;
   minThreshold: number;
+  fullAmount: number;
+  unit: SpiceUnit;
   notes: string;
   isSeasonal: boolean;
   seasonType?: SeasonType;
@@ -43,6 +46,8 @@ const emptyForm: SpiceFormData = {
   storageLocation: '',
   remainingAmount: 100,
   minThreshold: 20,
+  fullAmount: 30,
+  unit: '克',
   notes: '',
   isSeasonal: false,
 };
@@ -124,6 +129,8 @@ export default function SpiceRack() {
       storageLocation: spice.storageLocation,
       remainingAmount: spice.remainingAmount,
       minThreshold: spice.minThreshold,
+      fullAmount: spice.fullAmount,
+      unit: spice.unit,
       notes: spice.notes || '',
       isSeasonal: spice.isSeasonal || false,
       seasonType: spice.seasonType,
@@ -481,6 +488,27 @@ export default function SpiceRack() {
                 placeholder="例如：厨房上层橱柜"
                 className="w-full px-3 py-2 rounded-lg bg-white border border-spice-creamDark text-spice-charcoal placeholder:text-spice-brown/50 focus:outline-none focus:ring-2 focus:ring-spice-sage/30 focus:border-spice-sage/50 transition-all"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-spice-charcoal mb-1.5">净含量</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={formData.fullAmount}
+                  onChange={(e) => setFormData({ ...formData, fullAmount: Math.max(0, Number(e.target.value)) })}
+                  className="flex-1 px-3 py-2 rounded-lg bg-white border border-spice-creamDark text-spice-charcoal focus:outline-none focus:ring-2 focus:ring-spice-sage/30 focus:border-spice-sage/50 transition-all"
+                />
+                <select
+                  value={formData.unit}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value as SpiceUnit })}
+                  className="w-20 px-3 py-2 rounded-lg bg-white border border-spice-creamDark text-spice-charcoal focus:outline-none focus:ring-2 focus:ring-spice-sage/30 focus:border-spice-sage/50 transition-all"
+                >
+                  {unitOptions.map((u) => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-spice-charcoal mb-1.5">余量 (%)</label>

@@ -13,6 +13,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房上层橱柜A区',
     remainingAmount: 75,
     minThreshold: 20,
+    fullAmount: 50,
+    unit: '克',
     notes: '自带研磨器，现磨风味更佳',
     createdAt: '2025-08-15T10:30:00.000Z',
     updatedAt: '2026-05-10T14:20:00.000Z'
@@ -29,6 +31,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房上层橱柜B区',
     remainingAmount: 45,
     minThreshold: 25,
+    fullAmount: 20,
+    unit: '克',
     isSeasonal: true,
     seasonType: '秋季',
     notes: '适合烤肉和烤土豆',
@@ -47,6 +51,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房中层橱柜',
     remainingAmount: 15,
     minThreshold: 30,
+    fullAmount: 40,
+    unit: '克',
     notes: '库存偏低且临期，建议尽快使用并补货',
     createdAt: '2025-05-10T16:45:00.000Z',
     updatedAt: '2026-06-01T18:00:00.000Z'
@@ -63,6 +69,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房上层橱柜B区',
     remainingAmount: 88,
     minThreshold: 20,
+    fullAmount: 15,
+    unit: '克',
     notes: '做意面必备',
     createdAt: '2026-01-05T09:15:00.000Z',
     updatedAt: '2026-05-20T11:40:00.000Z'
@@ -79,6 +87,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房中层橱柜',
     remainingAmount: 60,
     minThreshold: 20,
+    fullAmount: 25,
+    unit: '克',
     notes: '临期提醒，尽快使用',
     createdAt: '2024-12-01T14:20:00.000Z',
     updatedAt: '2026-03-10T10:00:00.000Z'
@@ -95,6 +105,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房上层橱柜B区',
     remainingAmount: 92,
     minThreshold: 25,
+    fullAmount: 20,
+    unit: '克',
     notes: '法餐常用，鸡汤神器',
     createdAt: '2025-11-10T13:50:00.000Z',
     updatedAt: '2026-05-15T16:30:00.000Z'
@@ -111,6 +123,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房下层防潮柜',
     remainingAmount: 55,
     minThreshold: 30,
+    fullAmount: 60,
+    unit: '克',
     notes: '中辣度，川菜必备',
     createdAt: '2025-09-20T10:00:00.000Z',
     updatedAt: '2026-06-05T19:15:00.000Z'
@@ -126,6 +140,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房下层防潮柜',
     remainingAmount: 8,
     minThreshold: 25,
+    fullAmount: 50,
+    unit: '克',
     notes: '已过期！建议丢弃',
     createdAt: '2025-07-01T15:30:00.000Z',
     updatedAt: '2026-05-01T08:00:00.000Z'
@@ -142,6 +158,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房中层橱柜',
     remainingAmount: 70,
     minThreshold: 20,
+    fullAmount: 30,
+    unit: '克',
     notes: '广西大红八角，香气浓郁',
     createdAt: '2026-02-14T11:20:00.000Z',
     updatedAt: '2026-05-28T14:50:00.000Z'
@@ -157,6 +175,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房中层橱柜',
     remainingAmount: 100,
     minThreshold: 20,
+    fullAmount: 40,
+    unit: '克',
     notes: '还未开瓶使用',
     createdAt: '2026-03-01T09:00:00.000Z',
     updatedAt: '2026-03-01T09:00:00.000Z'
@@ -173,6 +193,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房上层橱柜A区',
     remainingAmount: 35,
     minThreshold: 20,
+    fullAmount: 10,
+    unit: '克',
     notes: '煲汤炖肉必备，临期提醒',
     createdAt: '2025-12-15T14:00:00.000Z',
     updatedAt: '2026-06-10T10:20:00.000Z'
@@ -189,6 +211,8 @@ export const mockSpicesData: Spice[] = [
     storageLocation: '厨房下层防潮柜',
     remainingAmount: 95,
     minThreshold: 25,
+    fullAmount: 50,
+    unit: '克',
     isSeasonal: true,
     seasonType: '冬季',
     notes: '做咖喱和黄金奶，注意易染色',

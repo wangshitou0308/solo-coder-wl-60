@@ -1,5 +1,18 @@
-import { useState, useMemo } from 'react';
-import { ClipboardList, BookMarked, Plus, Star, Calendar as CalendarIcon, Clock, Trash2, ChefHat, Sparkles, X } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import {
+  ClipboardList,
+  BookMarked,
+  Plus,
+  Star,
+  Calendar as CalendarIcon,
+  Clock,
+  Trash2,
+  ChefHat,
+  Sparkles,
+  X,
+  FileText,
+  Save,
+} from 'lucide-react';
 import PageContainer from '@/components/layout/PageContainer';
 import Modal from '@/components/common/Modal';
 import Badge from '@/components/common/Badge';
@@ -9,14 +22,15 @@ import { useSpiceStore } from '@/store/useSpiceStore';
 import { generateSpiceEmoji } from '@/utils/spiceUtils';
 import { formatDate } from '@/utils/dateUtils';
 import { cn } from '@/lib/utils';
+import type { SpiceUsage, SpiceUnit } from '@/types';
 
-type TabKey = 'cooking' | 'recipes';
+type TabKey = 'cooking' | 'recipes' | 'drafts';
 
 interface RecordFormData {
   dishName: string;
   cookDate: string;
   ingredients: string;
-  spicesUsed: string[];
+  usages: SpiceUsage[];
   flavorRating: number;
   notes: string;
 }
@@ -28,11 +42,13 @@ interface RecipeFormData {
   components: { spiceId: string; spiceName: string; ratio: number }[];
 }
 
+const unitOptions: SpiceUnit[] = ['克', '毫升', '个', '片', '茶匙', '汤匙', '束', '小块'];
+
 const emptyRecordForm: RecordFormData = {
   dishName: '',
   cookDate: new Date().toISOString().split('T')[0],
   ingredients: '',
-  spicesUsed: [],
+  usages: [],
   flavorRating: 4,
   notes: '',
 };
@@ -41,10 +57,14 @@ export default function Records() {
   const records = useRecordStore((state) => state.records);
   const addRecord = useRecordStore((state) => state.addRecord);
   const deleteRecord = useRecordStore((state) => state.deleteRecord);
+  const drafts = useRecordStore((state) => state.drafts);
+  const deleteDraft = useRecordStore((state) => state.deleteDraft);
+  const saveDraftAsRecord = useRecordStore((state) => state.saveDraftAsRecord);
   const recipes = useRecipeStore((state) => state.recipes);
   const addRecipe = useRecipeStore((state) => state.addRecipe);
   const deleteRecipe = useRecipeStore((state) => state.deleteRecipe);
   const spices = useSpiceStore((state) => state.spices);
+  const getRemainingAmountInUnit = useSpiceStore((state) => state.getRemainingAmountInUnit);
 
   const [activeTab, setActiveTab] = useState<TabKey>('cooking');
   const [recordFormOpen, setRecordFormOpen] = useState(false);
@@ -56,37 +76,70 @@ export default function Records() {
     suitableDishes: '',
     components: [],
   });
+  const [spiceSearch, setSpiceSearch] = useState('');
 
   const sortedRecords = useMemo(() => {
     return [...records].sort((a, b) => new Date(b.cookDate).getTime() - new Date(a.cookDate).getTime());
   }, [records]);
 
+  const sortedDrafts = useMemo(() => {
+    return [...drafts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [drafts]);
+
   const spiceMap = useMemo(() => new Map(spices.map((s) => [s.id, s])), [spices]);
+
+  const filteredSpices = useMemo(() => {
+    if (!spiceSearch.trim()) return spices;
+    const query = spiceSearch.toLowerCase();
+    return spices.filter(
+      (s) =>
+        s.name.toLowerCase().includes(query) ||
+        s.brand.toLowerCase().includes(query) ||
+        s.category.toLowerCase().includes(query)
+    );
+  }, [spices, spiceSearch]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const draftId = params.get('draft');
+    if (draftId) {
+      const draft = drafts.find((d) => d.id === draftId);
+      if (draft) {
+        setRecordForm({
+          dishName: draft.dishName,
+          cookDate: draft.cookDate,
+          ingredients: draft.ingredients,
+          usages: draft.usages,
+          flavorRating: draft.flavorRating,
+          notes: draft.notes,
+        });
+        setRecordFormOpen(true);
+      }
+    }
+  }, [drafts]);
 
   const handleSubmitRecord = () => {
     if (!recordForm.dishName.trim()) {
       alert('请输入菜品名称');
       return;
     }
-    const usages = recordForm.spicesUsed.map((spiceId) => {
-      const spice = spiceMap.get(spiceId);
-      return {
-        spiceId,
-        spiceName: spice?.name || spiceId,
-        amount: 1,
-        unit: '份',
-      };
-    });
+    if (recordForm.usages.length === 0) {
+      alert('请至少添加一种香料');
+      return;
+    }
+
     addRecord({
       dishName: recordForm.dishName,
       cookDate: recordForm.cookDate,
       ingredients: recordForm.ingredients.split(/[,，、\s]+/).filter(Boolean),
-      usages,
+      usages: recordForm.usages,
       flavorRating: recordForm.flavorRating,
       notes: recordForm.notes || undefined,
-    } as any);
+    });
+
     setRecordFormOpen(false);
     setRecordForm(emptyRecordForm);
+    setSpiceSearch('');
   };
 
   const handleSubmitRecipe = () => {
@@ -117,12 +170,45 @@ export default function Records() {
     setRecipeForm({ name: '', description: '', suitableDishes: '', components: [] });
   };
 
-  const toggleSpiceInRecord = (spiceId: string) => {
+  const addSpiceToRecord = (spiceId: string) => {
+    const spice = spiceMap.get(spiceId);
+    if (!spice) return;
+    if (recordForm.usages.find((u) => u.spiceId === spiceId)) return;
+
     setRecordForm((prev) => ({
       ...prev,
-      spicesUsed: prev.spicesUsed.includes(spiceId)
-        ? prev.spicesUsed.filter((id) => id !== spiceId)
-        : [...prev.spicesUsed, spiceId],
+      usages: [
+        ...prev.usages,
+        {
+          spiceId: spice.id,
+          spiceName: spice.name,
+          amount: 1,
+          unit: spice.unit,
+        },
+      ],
+    }));
+  };
+
+  const removeSpiceFromRecord = (spiceId: string) => {
+    setRecordForm((prev) => ({
+      ...prev,
+      usages: prev.usages.filter((u) => u.spiceId !== spiceId),
+    }));
+  };
+
+  const updateUsageAmount = (spiceId: string, amount: number) => {
+    setRecordForm((prev) => ({
+      ...prev,
+      usages: prev.usages.map((u) =>
+        u.spiceId === spiceId ? { ...u, amount: Math.max(0, amount) } : u
+      ),
+    }));
+  };
+
+  const updateUsageUnit = (spiceId: string, unit: string) => {
+    setRecordForm((prev) => ({
+      ...prev,
+      usages: prev.usages.map((u) => (u.spiceId === spiceId ? { ...u, unit } : u)),
     }));
   };
 
@@ -149,6 +235,31 @@ export default function Records() {
         c.spiceId === spiceId ? { ...c, ratio: Math.max(1, ratio) } : c
       ),
     }));
+  };
+
+  const handleSaveDraft = () => {
+    if (!recordForm.dishName.trim()) {
+      alert('请输入菜品名称');
+      return;
+    }
+    useRecordStore.getState().addDraft({
+      dishName: recordForm.dishName,
+      cookDate: recordForm.cookDate,
+      ingredients: recordForm.ingredients,
+      usages: recordForm.usages,
+      flavorRating: recordForm.flavorRating,
+      notes: recordForm.notes,
+      source: 'manual',
+    });
+    setRecordFormOpen(false);
+    setRecordForm(emptyRecordForm);
+    setSpiceSearch('');
+  };
+
+  const handleSaveDraftAsRecord = (draftId: string) => {
+    if (confirm('确认将此草稿保存为正式烹饪记录？将自动扣减对应香料库存。')) {
+      saveDraftAsRecord(draftId);
+    }
   };
 
   const renderStars = (rating: number, interactive?: boolean, onChange?: (r: number) => void) => {
@@ -188,11 +299,30 @@ export default function Records() {
             <p className="mt-1 text-sm text-spice-brown/70">记录每次烹饪，积累专属配方</p>
           </div>
           <button
-            onClick={() => activeTab === 'cooking' ? setRecordFormOpen(true) : setRecipeFormOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-spice-sage to-spice-sageDark text-white font-medium shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
+            onClick={() => {
+              if (activeTab === 'cooking') {
+                setRecordForm(emptyRecordForm);
+                setRecordFormOpen(true);
+              } else if (activeTab === 'recipes') {
+                setRecipeFormOpen(true);
+              }
+            }}
+            disabled={activeTab === 'drafts'}
+            className={cn(
+              'flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium shadow-md transition-all',
+              activeTab === 'drafts'
+                ? 'bg-spice-creamDark text-spice-brown/50 cursor-not-allowed'
+                : 'bg-gradient-to-r from-spice-sage to-spice-sageDark text-white hover:shadow-lg hover:-translate-y-0.5'
+            )}
           >
             <Plus className="h-4 w-4" />
-            <span>{activeTab === 'cooking' ? '新建记录' : '新增配方'}</span>
+            <span>
+              {activeTab === 'cooking'
+                ? '新建记录'
+                : activeTab === 'recipes'
+                ? '新增配方'
+                : '草稿'}
+            </span>
           </button>
         </div>
 
@@ -220,6 +350,23 @@ export default function Records() {
           >
             <BookMarked className="h-4 w-4" />
             <span>自定义配方</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('drafts')}
+            className={cn(
+              'flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+              activeTab === 'drafts'
+                ? 'bg-gradient-to-r from-spice-sage to-spice-sageDark text-white shadow-md'
+                : 'text-spice-brown hover:bg-spice-creamDark/50 hover:text-spice-charcoal'
+            )}
+          >
+            <FileText className="h-4 w-4" />
+            <span>草稿</span>
+            {drafts.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-spice-saffron/20 text-spice-brownDark">
+                {drafts.length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -276,6 +423,9 @@ export default function Records() {
                                 >
                                   <span>{generateSpiceEmoji(usage.spiceName)}</span>
                                   {usage.spiceName}
+                                  <span className="text-spice-brown/60">
+                                    · {usage.amount}{usage.unit}
+                                  </span>
                                 </span>
                               ))}
                             </div>
@@ -288,7 +438,7 @@ export default function Records() {
                         </div>
                         <button
                           onClick={() => {
-                            if (confirm(`确定要删除「${record.dishName}」的记录吗？`)) {
+                            if (confirm(`确定要删除「${record.dishName}」的记录吗？库存不会自动恢复。`)) {
                               deleteRecord(record.id);
                             }
                           }}
@@ -297,6 +447,83 @@ export default function Records() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'drafts' && (
+          <div>
+            {sortedDrafts.length === 0 ? (
+              <div className="py-20 text-center rounded-2xl bg-white border border-spice-creamDark">
+                <FileText className="mx-auto h-16 w-16 text-spice-brown/30" />
+                <p className="mt-4 text-spice-brown/60">暂无草稿</p>
+                <p className="text-sm text-spice-brown/40 mt-1">
+                  从创意灵感保存的草稿会显示在这里
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sortedDrafts.map((draft) => (
+                  <div
+                    key={draft.id}
+                    className="rounded-2xl bg-white border border-spice-creamDark p-5 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <FileText className="h-4 w-4 text-spice-brown/50 flex-shrink-0" />
+                          <h3 className="font-display font-semibold text-spice-charcoal truncate">
+                            {draft.dishName}
+                          </h3>
+                        </div>
+                        <p className="text-xs text-spice-brown/60">
+                          {formatDate(draft.cookDate)}
+                        </p>
+                      </div>
+                      <Badge text="草稿" variant="notice" />
+                    </div>
+
+                    {draft.usages.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {draft.usages.slice(0, 4).map((usage) => (
+                          <span
+                            key={usage.spiceId}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-spice-sage/10 text-spice-sageDark text-xs"
+                          >
+                            {generateSpiceEmoji(usage.spiceName)}
+                            {usage.spiceName}
+                          </span>
+                        ))}
+                        {draft.usages.length > 4 && (
+                          <span className="text-xs text-spice-brown/50">
+                            +{draft.usages.length - 4}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSaveDraftAsRecord(draft.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-spice-sage text-white hover:bg-spice-sageDark transition-colors"
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                        保存为记录
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('确定删除此草稿吗？')) {
+                            deleteDraft(draft.id);
+                          }
+                        }}
+                        className="px-3 py-2 rounded-lg text-sm text-spice-brown border border-spice-creamDark hover:bg-spice-creamDark/30 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -401,12 +628,24 @@ export default function Records() {
 
       <Modal
         open={recordFormOpen}
-        onClose={() => setRecordFormOpen(false)}
+        onClose={() => {
+          setRecordFormOpen(false);
+          setSpiceSearch('');
+        }}
         title="新建烹饪记录"
         footer={
           <>
             <button
-              onClick={() => setRecordFormOpen(false)}
+              onClick={handleSaveDraft}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-spice-brown border border-spice-creamDark hover:bg-spice-creamDark/50 transition-colors"
+            >
+              保存草稿
+            </button>
+            <button
+              onClick={() => {
+                setRecordFormOpen(false);
+                setSpiceSearch('');
+              }}
               className="px-4 py-2 rounded-lg text-sm font-medium text-spice-brown border border-spice-creamDark hover:bg-spice-creamDark/50 transition-colors"
             >
               取消
@@ -415,14 +654,16 @@ export default function Records() {
               onClick={handleSubmitRecord}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-spice-sage to-spice-sageDark text-white shadow-md hover:shadow-lg transition-all"
             >
-              保存
+              保存并扣减库存
             </button>
           </>
         }
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">菜品名称 *</label>
+            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">
+              菜品名称 *
+            </label>
             <input
               type="text"
               value={recordForm.dishName}
@@ -433,7 +674,9 @@ export default function Records() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-spice-charcoal mb-1.5">烹饪日期</label>
+              <label className="block text-sm font-medium text-spice-charcoal mb-1.5">
+                烹饪日期
+              </label>
               <input
                 type="date"
                 value={recordForm.cookDate}
@@ -442,12 +685,20 @@ export default function Records() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-spice-charcoal mb-1.5">风味评分</label>
-              <div className="py-2">{renderStars(recordForm.flavorRating, true, (r) => setRecordForm({ ...recordForm, flavorRating: r }))}</div>
+              <label className="block text-sm font-medium text-spice-charcoal mb-1.5">
+                风味评分
+              </label>
+              <div className="py-2">
+                {renderStars(recordForm.flavorRating, true, (r) =>
+                  setRecordForm({ ...recordForm, flavorRating: r })
+                )}
+              </div>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">食材（逗号/空格分隔）</label>
+            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">
+              食材（逗号/空格分隔）
+            </label>
             <input
               type="text"
               value={recordForm.ingredients}
@@ -456,34 +707,101 @@ export default function Records() {
               className="w-full px-3 py-2 rounded-lg bg-white border border-spice-creamDark text-spice-charcoal placeholder:text-spice-brown/50 focus:outline-none focus:ring-2 focus:ring-spice-sage/30 focus:border-spice-sage/50 transition-all"
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-spice-charcoal mb-2">
-              使用香料 <span className="text-xs font-normal text-spice-brown/60">（已选 {recordForm.spicesUsed.length} 种）</span>
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-spice-charcoal">
+                使用香料 <span className="text-xs font-normal text-spice-brown/60">（已选 {recordForm.usages.length} 种）</span>
+              </label>
+            </div>
+
+            {recordForm.usages.length > 0 ? (
+              <div className="space-y-2 mb-3">
+                {recordForm.usages.map((usage) => {
+                  const spice = spiceMap.get(usage.spiceId);
+                  const remaining = spice ? getRemainingAmountInUnit(spice) : 0;
+                  return (
+                    <div
+                      key={usage.spiceId}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-spice-cream border border-spice-creamDark"
+                    >
+                      <span className="text-xl w-8 text-center flex-shrink-0">
+                        {generateSpiceEmoji(usage.spiceName)}
+                      </span>
+                      <span className="text-sm text-spice-charcoal flex-1 truncate">
+                        {usage.spiceName}
+                      </span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          value={usage.amount}
+                          onChange={(e) =>
+                            updateUsageAmount(usage.spiceId, Number(e.target.value))
+                          }
+                          className="w-16 px-2 py-1.5 rounded-md bg-white border border-spice-creamDark text-sm text-spice-charcoal text-center focus:outline-none focus:ring-2 focus:ring-spice-sage/30"
+                        />
+                        <select
+                          value={usage.unit}
+                          onChange={(e) => updateUsageUnit(usage.spiceId, e.target.value)}
+                          className="px-2 py-1.5 rounded-md bg-white border border-spice-creamDark text-sm text-spice-charcoal focus:outline-none focus:ring-2 focus:ring-spice-sage/30"
+                        >
+                          {unitOptions.map((u) => (
+                            <option key={u} value={u}>
+                              {u}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeSpiceFromRecord(usage.spiceId)}
+                        className="p-1.5 rounded-md text-spice-brown/50 hover:text-spice-cinnamon hover:bg-spice-cinnamon/10 transition-colors flex-shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-spice-brown/60 mb-3 py-2 text-center bg-spice-cream rounded-lg border border-spice-creamDark border-dashed">
+                请从下方选择香料并填写用量
+              </p>
+            )}
+
+            <div className="relative mb-2">
+              <input
+                type="text"
+                value={spiceSearch}
+                onChange={(e) => setSpiceSearch(e.target.value)}
+                placeholder="搜索香料..."
+                className="w-full px-3 py-2 rounded-lg bg-white border border-spice-creamDark text-sm text-spice-charcoal placeholder:text-spice-brown/50 focus:outline-none focus:ring-2 focus:ring-spice-sage/30 focus:border-spice-sage/50 transition-all"
+              />
+            </div>
+
             <div className="max-h-48 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 rounded-xl bg-spice-cream border border-spice-creamDark">
-              {spices.map((spice) => {
-                const selected = recordForm.spicesUsed.includes(spice.id);
-                return (
+              {filteredSpices
+                .filter((s) => !recordForm.usages.find((u) => u.spiceId === s.id))
+                .map((spice) => (
                   <button
                     key={spice.id}
                     type="button"
-                    onClick={() => toggleSpiceInRecord(spice.id)}
-                    className={cn(
-                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all border',
-                      selected
-                        ? 'bg-spice-sage text-white border-spice-sage shadow-sm'
-                        : 'bg-white text-spice-charcoal border-spice-creamDark hover:border-spice-sage/50'
-                    )}
+                    onClick={() => addSpiceToRecord(spice.id)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-white text-spice-charcoal border border-spice-creamDark hover:border-spice-sage/50 hover:bg-spice-sage/5 transition-all"
                   >
-                    <span className="text-base">{generateSpiceEmoji(spice.name)}</span>
+                    <Plus className="h-3.5 w-3.5 text-spice-sage" />
                     <span className="truncate">{spice.name}</span>
                   </button>
-                );
-              })}
+                ))}
             </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">备注</label>
+            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">
+              备注
+            </label>
             <textarea
               rows={3}
               value={recordForm.notes}
@@ -519,7 +837,9 @@ export default function Records() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">配方名称 *</label>
+            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">
+              配方名称 *
+            </label>
             <input
               type="text"
               value={recipeForm.name}
@@ -529,7 +849,9 @@ export default function Records() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">配方描述</label>
+            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">
+              配方描述
+            </label>
             <textarea
               rows={2}
               value={recipeForm.description}
@@ -539,7 +861,9 @@ export default function Records() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">适用菜品（逗号分隔）</label>
+            <label className="block text-sm font-medium text-spice-charcoal mb-1.5">
+              适用菜品（逗号分隔）
+            </label>
             <input
               type="text"
               value={recipeForm.suitableDishes}
@@ -562,13 +886,19 @@ export default function Records() {
                     key={comp.spiceId}
                     className="flex items-center gap-3 p-2 rounded-lg bg-spice-cream border border-spice-creamDark"
                   >
-                    <span className="text-xl w-8 text-center">{generateSpiceEmoji(comp.spiceName)}</span>
-                    <span className="text-sm text-spice-charcoal flex-1 truncate">{comp.spiceName}</span>
+                    <span className="text-xl w-8 text-center">
+                      {generateSpiceEmoji(comp.spiceName)}
+                    </span>
+                    <span className="text-sm text-spice-charcoal flex-1 truncate">
+                      {comp.spiceName}
+                    </span>
                     <input
                       type="number"
                       min={1}
                       value={comp.ratio}
-                      onChange={(e) => updateComponentRatio(comp.spiceId, Number(e.target.value))}
+                      onChange={(e) =>
+                        updateComponentRatio(comp.spiceId, Number(e.target.value))
+                      }
                       className="w-16 px-2 py-1 rounded-md bg-white border border-spice-creamDark text-sm text-spice-charcoal text-center focus:outline-none focus:ring-2 focus:ring-spice-sage/30"
                     />
                     <span className="text-xs text-spice-brown/60 w-6">份</span>

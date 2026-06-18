@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { CookingRecord, SpiceUsage } from '../types';
+import { useSpiceStore } from './useSpiceStore';
 
 const mockUsages1: SpiceUsage[] = [
   { spiceId: 'spice-001', spiceName: '黑胡椒', amount: 2, unit: '克' },
@@ -93,13 +94,30 @@ const mockRecords: CookingRecord[] = [
   },
 ];
 
+interface RecordFormDraft {
+  id: string;
+  dishName: string;
+  cookDate: string;
+  ingredients: string;
+  usages: SpiceUsage[];
+  flavorRating: number;
+  notes: string;
+  source?: string;
+  createdAt: string;
+}
+
 interface RecordState {
   records: CookingRecord[];
-  addRecord: (record: Omit<CookingRecord, 'id' | 'createdAt'>) => void;
+  drafts: RecordFormDraft[];
+  addRecord: (record: Omit<CookingRecord, 'id' | 'createdAt'> & { deductInventory?: boolean }) => string;
   deleteRecord: (id: string) => void;
+  addDraft: (draft: Omit<RecordFormDraft, 'id' | 'createdAt'>) => string;
+  deleteDraft: (id: string) => void;
+  saveDraftAsRecord: (draftId: string) => string | null;
   getSpiceUsageHistory: (spiceId: string) => CookingRecord[];
   calculateTopSpices: (timeRange: 'month' | 'quarter' | 'year') => [string, string, number][];
   calculateTopPairings: (timeRange: 'month' | 'quarter' | 'year') => [string, number][];
+  getSpiceUsageFrequency: (spiceId: string, days?: number) => number;
 }
 
 const filterByTimeRange = (records: CookingRecord[], timeRange: 'month' | 'quarter' | 'year') => {
@@ -123,21 +141,84 @@ export const useRecordStore = create<RecordState>()(
   persist(
     (set, get) => ({
       records: mockRecords,
-      addRecord: (record) =>
+      drafts: [],
+
+      addRecord: (record) => {
+        const newId = `record-${Date.now()}`;
+        const newRecord: CookingRecord = {
+          ...record,
+          id: newId,
+          createdAt: new Date().toISOString(),
+        };
+
         set((state) => ({
-          records: [
-            ...state.records,
-            { ...record, id: `record-${Date.now()}`, createdAt: new Date().toISOString() },
-          ],
-        })),
+          records: [...state.records, newRecord],
+        }));
+
+        if (record.deductInventory !== false) {
+          const { decreaseByAmount } = useSpiceStore.getState();
+          record.usages.forEach((usage) => {
+            decreaseByAmount(
+              usage.spiceId,
+              usage.amount,
+              usage.unit,
+              `烹饪：${record.dishName}`,
+              newId
+            );
+          });
+        }
+
+        return newId;
+      },
+
       deleteRecord: (id) =>
         set((state) => ({
           records: state.records.filter((r) => r.id !== id),
         })),
+
+      addDraft: (draft) => {
+        const newId = `draft-${Date.now()}`;
+        const newDraft: RecordFormDraft = {
+          ...draft,
+          id: newId,
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          drafts: [...state.drafts, newDraft],
+        }));
+        return newId;
+      },
+
+      deleteDraft: (id) =>
+        set((state) => ({
+          drafts: state.drafts.filter((d) => d.id !== id),
+        })),
+
+      saveDraftAsRecord: (draftId) => {
+        const draft = get().drafts.find((d) => d.id === draftId);
+        if (!draft) return null;
+
+        const recordId = get().addRecord({
+          dishName: draft.dishName,
+          cookDate: draft.cookDate,
+          ingredients: draft.ingredients.split(/[,，、\s]+/).filter(Boolean),
+          usages: draft.usages,
+          flavorRating: draft.flavorRating,
+          notes: draft.notes || undefined,
+        });
+
+        set((state) => ({
+          drafts: state.drafts.filter((d) => d.id !== draftId),
+        }));
+
+        return recordId;
+      },
+
       getSpiceUsageHistory: (spiceId) =>
         get()
           .records.filter((r) => r.usages.some((u) => u.spiceId === spiceId))
           .sort((a, b) => new Date(b.cookDate).getTime() - new Date(a.cookDate).getTime()),
+
       calculateTopSpices: (timeRange) => {
         const filtered = filterByTimeRange(get().records, timeRange);
         const countMap = new Map<string, { name: string; count: number }>();
@@ -156,6 +237,7 @@ export const useRecordStore = create<RecordState>()(
           .sort((a, b) => b[2] - a[2])
           .slice(0, 10);
       },
+
       calculateTopPairings: (timeRange) => {
         const filtered = filterByTimeRange(get().records, timeRange);
         const countMap = new Map<string, number>();
@@ -172,10 +254,25 @@ export const useRecordStore = create<RecordState>()(
           .sort((a, b) => b[1] - a[1])
           .slice(0, 5);
       },
+
+      getSpiceUsageFrequency: (spiceId, days = 30) => {
+        const now = new Date();
+        const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+        const records = get().records.filter(
+          (r) =>
+            new Date(r.cookDate) >= startDate &&
+            r.usages.some((u) => u.spiceId === spiceId)
+        );
+        return records.length;
+      },
     }),
     {
       name: 'spice-rack-records',
       storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        records: state.records,
+        drafts: state.drafts,
+      }),
     }
   )
 );
